@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>AR.js Example</title>
+  <script src="aframe.min.js"></script>
+  <script src="aframe-ar.js"></script>
+  <style>
+    body { margin: 0; overflow: hidden; }
+    #arjsDebugUIContainer { display: none; }
+    #selector-container {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      z-index: 10;
+      background: rgba(255,255,255,0.8);
+      padding: 8px;
+      border-radius: 6px;
+    }
+  </style>
+</head>
+<body>
+    <div id="selector-container">
+        <label for="shape-select">Scegli oggetto: </label>
+        <select id="shape-select">
+            <option value="box">Box</option>
+            <option value="earth">Mondo Rotante</option>
+        </select>
+    </div>
+  <a-scene embedded arjs="sourceType: webcam;">
+    <a-marker preset="hiro">
+        <a-entity id="earth-entity" visible="false">
+            <a-sphere src="https://raw.githubusercontent.com/aframevr/sample-assets/master/assets/images/space/earth_atmos_4096.jpg" radius="0.5" position="0 0.8 0" segments-height="53">
+            <a-animation attribute="rotation"
+                    dur="6000"
+                    from= "0 0 0"
+                    to="0 360 0"
+                    easing= "linear"     
+                    repeat="indefinite"></a-animation>
+            </a-sphere>
+        </a-entity>
+        <a-entity id="box-entity">
+            <a-box 
+            position="0 0.5 0" 
+            depth="1" height="1" width="1" 
+            color="red"
+            animation="property: rotation; to: 0 360 0; loop: true; dur: 6000">
+            </a-box>
+        </a-entity>
+      <a-text value="Benvenuto!" position='-0.7 -2 0' color='black' rotation='-90 -90 90'></a-text>
+    </a-marker>
+    <a-entity camera></a-entity>
+  </a-scene>
+
+  <script>
+    const select = document.getElementById('shape-select');
+    const earthEntity = document.getElementById('earth-entity');
+    const boxEntity = document.getElementById('box-entity');
+    select.addEventListener('change', function() {
+      if (this.value === 'earth') {
+        earthEntity.setAttribute('visible', 'true');
+        boxEntity.setAttribute('visible', 'false');
+      } else {
+        earthEntity.setAttribute('visible', 'false');
+        boxEntity.setAttribute('visible', 'true');
+      }
+    });
+  </script>
+</body>
+</html>
