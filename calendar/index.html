@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Calendario semplice + Invia a Google Calendar</title>
+<style>
+  :root{font-family:system-ui,-apple-system,Segoe UI,Roboto,"Helvetica Neue",Arial}
+  body{margin:0;padding:20px;background:#f4f6f8;color:#111}
+  .container{max-width:900px;margin:0 auto}
+  h1{font-size:1.2rem;margin-bottom:12px}
+  .calendar{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
+  .day{background:#fff;border-radius:6px;padding:8px;min-height:90px;box-shadow:0 1px 2px rgba(0,0,0,.05)}
+  .day header{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;font-size:.9rem}
+  .day button{font-size:.75rem;padding:4px 6px;border-radius:4px;border:1px solid #ddd;background:#f8fafb;cursor:pointer}
+  .events{font-size:.85rem;display:flex;flex-direction:column;gap:4px}
+  .event{background:#eaf4ff;border-left:4px solid #2b7cff;padding:6px;border-radius:4px}
+  .controls{display:flex;gap:8px;margin:14px 0;align-items:center}
+  input,select,textarea{padding:8px;border-radius:6px;border:1px solid #d6d9dd;background:#fff}
+  .form{display:grid;grid-template-columns:1fr 1fr;gap:8px;align-items:start}
+  .form-row{grid-column:span 2}
+  .actions{display:flex;gap:8px}
+  .primary{background:#2b7cff;color:#fff;border:none;padding:10px 12px;border-radius:6px;cursor:pointer}
+  .ghost{background:#fff;color:#111;border:1px solid #ccc;padding:10px 12px;border-radius:6px;cursor:pointer}
+  @media (max-width:700px){.form{grid-template-columns:1fr}.day{min-height:70px}}
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>Calendario mensile semplice</h1>
+
+  <div class="controls">
+    <label>
+      Mese:
+      <select id="monthSelect"></select>
+    </label>
+    <label>
+      Anno:
+      <select id="yearSelect"></select>
+    </label>
+    <div style="margin-left:auto" id="legend"><strong>Legenda:</strong> eventi visibili cliccando "Aggiungi"</div>
+  </div>
+
+  <div class="calendar" id="calendar"></div>
+
+  <h2 style="margin-top:18px">Crea evento</h2>
+  <form id="eventForm" class="form" onsubmit="return false;">
+    <label>
+      Titolo
+      <input id="title" required />
+    </label>
+    <label>
+      Data
+      <input id="date" type="date" required />
+    </label>
+    <label>
+      Ora inizio
+      <input id="startTime" type="time" required />
+    </label>
+    <label>
+      Ora fine
+      <input id="endTime" type="time" required />
+    </label>
+    <label class="form-row">
+      Descrizione
+      <textarea id="description" rows="2"></textarea>
+    </label>
+    <div class="actions form-row">
+      <button class="primary" id="addLocal">Aggiungi al calendario locale</button>
+      <button class="ghost" id="openGoogle">Apri in Google Calendar</button>
+    </div>
+  </form>
+</div>
+
+<script>
+(function(){
+  const monthSelect = document.getElementById('monthSelect');
+  const yearSelect = document.getElementById('yearSelect');
+  const calendarEl = document.getElementById('calendar');
+  const titleEl = document.getElementById('title');
+  const dateEl = document.getElementById('date');
+  const startEl = document.getElementById('startTime');
+  const endEl = document.getElementById('endTime');
+  const descEl = document.getElementById('description');
+  const addLocalBtn = document.getElementById('addLocal');
+  const openGoogleBtn = document.getElementById('openGoogle');
+
+  const today = new Date();
+  const defaultYear = today.getFullYear();
+  const defaultMonth = today.getMonth();
+
+  // popola selettori
+  for(let m=0;m<12;m++){
+    const opt = document.createElement('option');
+    opt.value = m;
+    opt.textContent = new Date(0, m).toLocaleString('it-IT', {month:'long'});
+    if(m===defaultMonth) opt.selected = true;
+    monthSelect.appendChild(opt);
+  }
+  for(let y = defaultYear-2; y<= defaultYear+3; y++){
+    const opt = document.createElement('option');
+    opt.value = y;
+    opt.textContent = y;
+    if(y===defaultYear) opt.selected = true;
+    yearSelect.appendChild(opt);
+  }
+
+  function buildCalendar(year, month){
+    calendarEl.innerHTML = '';
+    const first = new Date(year, month, 1);
+    const startDay = first.getDay(); // 0=Sun
+    // header weekday names
+    const weekNames = ['Dom','Lun','Mar','Mer','Gio','Ven','Sab'];
+    for(let i=0;i<7;i++){
+      const header = document.createElement('div');
+      header.className = 'day';
+      header.style.background='#f0f4f8';
+      header.innerHTML = '<header style="justify-content:center;padding:6px 0;font-weight:600">'+weekNames[i]+'</header>';
+      calendarEl.appendChild(header);
+    }
+    const daysInMonth = new Date(year, month+1, 0).getDate();
+    // pad with empty days before 1st (if week starts Sun)
+    const pad = startDay;
+    for(let i=0;i<pad;i++){
+      const empty = document.createElement('div');
+      empty.className = 'day';
+      calendarEl.appendChild(empty);
+    }
+    // create day cells
+    for(let d=1; d<=daysInMonth; d++){
+      const cell = document.createElement('div');
+      cell.className = 'day';
+      const header = document.createElement('header');
+      header.innerHTML = '<span>'+d+'</span><button data-day="'+d+'">Aggiungi</button>';
+      cell.appendChild(header);
+      const eventsWrap = document.createElement('div');
+      eventsWrap.className = 'events';
+      cell.appendChild(eventsWrap);
+      calendarEl.appendChild(cell);
+
+      header.querySelector('button').addEventListener('click', ()=>{
+        // prefill form with clicked date
+        const mm = String(month+1).padStart(2,'0');
+        const dd = String(d).padStart(2,'0');
+        dateEl.value = `${year}-${mm}-${dd}`;
+        startEl.value = '09:00';
+        endEl.value = '10:00';
+        titleEl.focus();
+      });
+    }
+  }
+
+  function isoLocalDateTime(dateStr, timeStr){
+    // combine local date + time into a JS Date then to ISO with timezone offset stripped for Google link
+    const [y,m,d] = dateStr.split('-').map(Number);
+    const [hh,mm] = timeStr.split(':').map(Number);
+    const dt = new Date(y,m-1,d,hh,mm,0);
+    // Google uses UTC or "YYYYMMDDTHHMMSSZ" for UTC; we'll convert to UTC string (Z)
+    return dt.toISOString().replace(/[-:]/g,'').split('.')[0]+'Z';
+  }
+
+  // Simple in-memory events map: key = YYYY-MM-DD -> array of events
+  const events = {};
+
+  function renderEvents(){
+    // clear all event lists
+    document.querySelectorAll('.events').forEach(el=>el.innerHTML='');
+    for(const key in events){
+      const cellButton = [...calendarEl.querySelectorAll('button[data-day]')].find(b=>{
+        const parent = b.closest('.day');
+        const header = parent.querySelector('header span');
+        if(!header) return false;
+        const day = header.textContent;
+        // compute cell date visible
+        const selYear = Number(yearSelect.value);
+        const selMonth = Number(monthSelect.value);
+        const mm = String(selMonth+1).padStart(2,'0');
+        const dd = String(day).padStart(2,'0');
+        const cellKey = `${selYear}-${mm}-${dd}`;
+        return cellKey === key;
+      });
+      if(!cellButton) continue;
+      const eventsWrap = cellButton.closest('.day').querySelector('.events');
+      events[key].forEach((ev, i)=>{
+        const evEl = document.createElement('div');
+        evEl.className='event';
+        evEl.innerHTML = `<strong>${ev.title}</strong><div style="font-size:.8rem">${ev.start} - ${ev.end}</div>`;
+        eventsWrap.appendChild(evEl);
+      });
+    }
+  }
+
+  // handlers
+  addLocalBtn.addEventListener('click', ()=>{
+    if(!dateEl.value || !startEl.value || !endEl.value || !titleEl.value) return alert('Compila titolo, data e orari');
+    const key = dateEl.value;
+    if(!events[key]) events[key]=[];
+    events[key].push({
+      title: titleEl.value,
+      description: descEl.value||'',
+      start: startEl.value,
+      end: endEl.value
+    });
+    renderEvents();
+    // reset form lightly
+    titleEl.value=''; descEl.value='';
+  });
+
+  openGoogleBtn.addEventListener('click', ()=>{
+    if(!dateEl.value || !startEl.value || !endEl.value || !titleEl.value) return alert('Compila titolo, data e orari');
+    // Format for Google Calendar event creation link:
+    // https://calendar.google.com/calendar/render?action=TEMPLATE&text=TITLE&details=DESC&dates=START/END&ctz=Europe/Rome
+    // Use UTC timestamps in YYYYMMDDTHHMMSSZ
+    const startISO = isoLocalDateTime(dateEl.value, startEl.value);
+    const endISO = isoLocalDateTime(dateEl.value, endEl.value);
+    const text = encodeURIComponent(titleEl.value);
+    const details = encodeURIComponent(descEl.value||'');
+    // Optionally set timezone parameter (browser local timezone guessed)
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
+    const tzParam = tz ? `&ctz=${encodeURIComponent(tz)}` : '';
+    const url = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${text}&details=${details}&dates=${startISO}/${endISO}${tzParam}`;
+    // open in new tab
+    window.open(url, '_blank');
+  });
+
+  // rebuild calendar on month/year change
+  monthSelect.addEventListener('change', ()=> buildCalendar(Number(yearSelect.value), Number(monthSelect.value)));
+  yearSelect.addEventListener('change', ()=> buildCalendar(Number(yearSelect.value), Number(monthSelect.value)));
+
+  // initial build
+  buildCalendar(defaultYear, defaultMonth);
+
+})();
+</script>
