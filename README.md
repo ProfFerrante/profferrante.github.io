@@ -41,6 +41,7 @@ Throughout the courses, we will be utilizing the following industry-standard tec
 ## Projects
 *   [**AR**](https://profferrante.github.io/AR)
 *   [**Sistema-Particellare-interattivo**](https://profferrante.github.io/Three.js-MediaPipe-Sistema-Particellare-interattivo/)
+*   [**Calendar**](https://profferrante.github.io/calendar/)
 
 ---
 ## 📝 License
