@@ -6,7 +6,7 @@ This space is dedicated to providing learning materials, assignments, project re
 ## 👨‍🏫 Instructor
 *   **Name:** prof. Ing. Luigi Ferrante
 *   **Role:** Computer Science Instructor
-*   **Institution:** [School Name] - CTS - Einaudi
+*   **Institution:** CTS - Einaudi
 
 ---
 
